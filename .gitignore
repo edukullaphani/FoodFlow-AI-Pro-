@@ -19,3 +19,4 @@ venv/
 
 # Data files (optional)
 data/storage.json
+data/sample.csv
