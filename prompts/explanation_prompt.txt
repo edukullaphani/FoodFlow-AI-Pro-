@@ -1,0 +1,12 @@
+Given the decision: {decision}
+And these signals:
+  - Item: {item}
+  - Consumption Rate: {consumption_rate:.2f} units/day
+  - Days to Expiry: {days_to_expiry} days
+  - Trend: {trend}
+
+Provide a concise business-friendly explanation that includes:
+1. Why this decision was made
+2. What risk exists (expiry, waste, etc.)
+3. One actionable suggestion
+Keep it to 2-3 sentences.
