@@ -9,10 +9,7 @@ def load_prompt():
 def run(signals, hypothesis):
     template = load_prompt()
     prompt = template.format(
-        item=signals['item'],
-        consumption_rate=signals['consumption_rate'],
-        days_to_expiry=signals['days_to_expiry'],
-        trend=signals['trend'],
+        signals=signals,
         hypothesis=hypothesis
     )
     return generate(prompt)

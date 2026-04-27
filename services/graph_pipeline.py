@@ -24,41 +24,50 @@ class AgentState(TypedDict):
 def hypothesis_node(state: AgentState) -> AgentState:
     signals = state["signals"]
     hypothesis = run_hypothesis(signals)
-    return {"hypothesis": hypothesis}
+    # return {"hypothesis": hypothesis}
+    state["hypothesis"] = hypothesis
+    return state
 
 
 def simulation_node(state: AgentState) -> AgentState:
     signals = state["signals"]
     hypothesis = state["hypothesis"]
     simulation = run_simulation(signals, hypothesis)
-    return {"simulation": simulation}
-
+    # return {"simulation": simulation}
+    state["simulation"] = simulation
+    return state
 
 def decision_node(state: AgentState) -> AgentState:
     signals = state["signals"]
     hypothesis = state["hypothesis"]
     simulation = state["simulation"]
-    decision_input = {
-        "signals": signals,
-        "hypothesis": hypothesis,
-        "simulation": simulation
-    }
-    decision = run_decision(decision_input)
-    return {"decision": decision}
+    # decision_input = {
+    #     "signals": signals,
+    #     "hypothesis": hypothesis,
+    #     "simulation": simulation
+    # }
+    decision = run_decision(signals, hypothesis, simulation)
+    # return {"decision": decision}
+    state["decision"] = decision
+    return state
 
 
 def strategy_node(state: AgentState) -> AgentState:
     decision = state["decision"]
     signals = state["signals"]
     strategy = run_strategy(decision, signals)
-    return {"strategy": strategy}
+    # return {"strategy": strategy}
+    state["strategy"] = strategy
+    return state
 
 
 def explanation_node(state: AgentState) -> AgentState:
     decision = state["decision"]
     signals = state["signals"]
     explanation = run_explanation(decision, signals)
-    return {"explanation": explanation}
+    # return {"explanation": explanation}
+    state["explanation"] = explanation
+    return state
 
 
 def build_graph():

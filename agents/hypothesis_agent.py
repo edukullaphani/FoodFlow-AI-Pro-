@@ -8,10 +8,5 @@ def load_prompt():
 
 def run(signals):
     template = load_prompt()
-    prompt = template.format(
-        item=signals['item'],
-        consumption_rate=signals['consumption_rate'],
-        days_to_expiry=signals['days_to_expiry'],
-        trend=signals['trend']
-    )
+    prompt = template.format(signals=signals)
     return generate(prompt)

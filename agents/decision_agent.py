@@ -6,7 +6,10 @@ def load_prompt():
         return f.read()
 
 
-def run(signals):
+def run(signals,hypothesis,simulation):
     template = load_prompt()
-    prompt = template.format(signals=signals)
-    return generate(prompt)
+    prompt = template.format(signals=signals,
+                             hypothesis=hypothesis, 
+                             simulation=simulation
+                             )
+    return generate(prompt, max_tokens=600)

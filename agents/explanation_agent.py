@@ -7,12 +7,14 @@ def load_prompt():
 
 
 def run(decision, signals):
+    # if decision and "action:" in decision:
+    #     decision = decision.split("action:")[-1].strip()
     template = load_prompt()
     prompt = template.format(
         decision=decision,
-        item=signals['item'],
-        consumption_rate=signals['consumption_rate'],
-        days_to_expiry=signals['days_to_expiry'],
-        trend=signals['trend']
+        item=signals.get("item", "unknown"),
+        consumption_rate=signals.get("consumption_rate", 0),
+        days_to_expiry=signals.get("days_to_expiry", 0),
+        trend=signals.get("trend", "unknown")
     )
-    return generate(prompt)
+    return generate(prompt, max_tokens=2000)
