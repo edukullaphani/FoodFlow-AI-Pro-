@@ -14,11 +14,11 @@ from agents.strategy_agent import run as run_strategy
 
 class AgentState(TypedDict):
     signals: dict
-    hypothesis: str
-    simulation: str
-    decision: str
-    strategy: str
-    explanation: str
+    hypothesis: dict
+    simulation: dict
+    decision: dict
+    strategy: dict
+    explanation: dict
 
 
 def hypothesis_node(state: AgentState) -> AgentState:
@@ -103,11 +103,11 @@ def run_graph_pipeline(csv_path):
     }
     initial_state: AgentState = {
         "signals": signals,
-        "hypothesis": "",
-        "simulation": "",
-        "decision": "",
-        "strategy": "",
-        "explanation": ""
+        "hypothesis": {},
+        "simulation": {},
+        "decision": {},
+        "strategy": {},
+        "explanation": {}
     }
     graph = build_graph()
     result = graph.invoke(initial_state)

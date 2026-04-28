@@ -24,3 +24,24 @@ Rules:
 - base decision on expiry risk and demand trend
 - do not invent data
 - keep response under 2 lines
+
+IMPORTANT:
+* You MUST return ONLY valid JSON
+* Start your response with {{ and end with }}
+* Do NOT include any text before or after JSON
+* Do NOT use markdown, Do NOT use ``` blocks
+* The JSON must be syntactically valid
+
+Output format:
+{{
+"action": "<reduce_stock | increase_stock | maintain_stock>",
+"reason": "<short justification>",
+"confidence": "<low | medium | high>"
+}}
+
+Example:
+{{
+"action": "reduce_stock",
+"reason": "High expiry risk with low weekend demand",
+"confidence": "high"
+}}

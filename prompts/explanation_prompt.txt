@@ -10,3 +10,20 @@ Provide a concise business-friendly explanation that includes:
 2. What risk exists (expiry, waste, etc.)
 3. One actionable suggestion
 Keep it to 2-3 sentences.
+
+IMPORTANT:
+* You MUST return ONLY valid JSON
+* Start your response with {{ and end with }}
+* Do NOT include any text before or after JSON
+* Do NOT use markdown, Do NOT use ``` blocks
+* The JSON must be syntactically valid
+
+Output format:
+{{
+"explanation": "<2-3 sentence business explanation>"
+}}
+
+Example:
+{{
+"explanation": "Reducing stock by 15% prevents waste from expiry. With only 2 days left and declining weekend demand, this action minimizes loss risk."
+}}

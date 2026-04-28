@@ -12,16 +12,44 @@ client = OpenAI(
 
 
 def generate(prompt: str, max_tokens: int = 500) -> str:
-    try:
-        messages = [
-            {"role": "user", "content": prompt}
-        ]
-        response = client.chat.completions.create(
-            model="openrouter/free",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=max_tokens
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"[LLM ERROR]: {str(e)}"
+    last_error = None
+    
+    for attempt in range(2):
+        try:
+            messages = [
+                {"role": "user", "content": prompt}
+            ]
+            response = client.chat.completions.create(
+                model="openai/gpt-oss-120b:free",
+                messages=messages,
+                temperature=0.7,
+                max_tokens=max_tokens
+            )
+            
+            # Extract content safely - try content first, then reasoning
+            message = response.choices[0].message
+            content = message.content
+            
+            if content is None or (isinstance(content, str) and not content.strip()):
+                # Try reasoning as fallback
+                content = message.reasoning
+            
+            if content is None or (isinstance(content, str) and not content.strip()):
+                # Empty response - retry
+                print(f"Retry attempt: {attempt + 1} - empty response", flush=True)
+                last_error = "Empty response"
+                continue
+            
+            content = content.strip()
+            import sys
+            print(f"[DEBUG LLM]: {content[:200]}...", flush=True)
+            return content
+            
+        except Exception as e:
+            last_error = str(e)
+            print(f"Retry attempt: {attempt + 1} - {str(e)}", flush=True)
+            continue
+    
+    # All retries failed
+    print(f"Using fallback response after retries", flush=True)
+    return f"[LLM ERROR]: Failed after retries - {last_error}"
