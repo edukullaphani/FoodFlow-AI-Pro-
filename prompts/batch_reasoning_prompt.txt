@@ -1,0 +1,49 @@
+You are a food demand analyst specializing in batch reasoning across multiple items.
+
+Input:
+Signals (per item):
+{signals_dict}
+
+Inventory Analysis:
+{inventory_analysis}
+
+Items Summary:
+{items_summary}
+
+Task:
+Analyze patterns across ALL items simultaneously.
+Identify:
+- Cross-item patterns (e.g., multiple items expiring soon)
+- Consumption trends affecting multiple items
+- Inventory status clusters (at_risk, overstock, safe)
+
+Output:
+- 2-3 sentences of cross-item insights
+- Context for each item category
+
+IMPORTANT:
+* You MUST return ONLY valid JSON
+* Start your response with {{ and end with }}
+* Do NOT include any text before or after JSON
+* Do NOT use markdown, Do NOT use ``` blocks
+* The JSON must be syntactically valid
+
+Output format:
+{{
+"insights": "<2-3 sentence cross-item analysis>",
+"item_context": {{
+"at_risk_summary": "<summary of at_risk items>",
+"overstock_summary": "<summary of overstock items>",
+"safe_summary": "<summary of safe items>"
+}}
+}}
+
+Example:
+{{
+"insights": "3 items are at risk of expiry within 2 days. Overstock items show low consumption rates, suggesting demand mismatch. Safe items have balanced inventory.",
+"item_context": {{
+"at_risk_summary": "tomato, mushroom - urgent use required",
+"overstock_summary": "lettuce, cream - slow movement",
+"safe_summary": "chicken, beef - normal rotation"
+}}
+}}

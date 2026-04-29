@@ -4,7 +4,7 @@ from utils.llm_client import generate
 
 
 FALLBACK_DICT = {
-    "explanation": "Unable to generate explanation"
+    "explanation": "Unable to generate system-level explanation"
 }
 
 
@@ -41,22 +41,39 @@ def load_prompt():
         return f.read()
 
 
-def run(decision, signals):
-    # Handle decision as dict (now returns dict with action, reason, confidence)
-    if isinstance(decision, dict):
-        decision_action = decision.get("action", "")
-        decision_reason = decision.get("reason", "")
-        decision_str = f"action: {decision_action}, reason: {decision_reason}"
-    else:
-        decision_str = str(decision)
-
+def run(analysis: dict, decisions: dict, menu_actions: dict):
+    """Run system-level explanation.
+    
+    Args:
+        analysis: Output from inventory analysis {at_risk, overstock, safe}
+        decisions: Dict mapping item -> {action, reason, confidence}
+        menu_actions: Output from menu optimization {add_dishes, remove_dishes, modify_dishes}
+    
+    Returns:
+        Dict with system-level explanation
+    """
+    # Build decision summary
+    decision_summary = []
+    for item, dec in decisions.items():
+        decision_summary.append(f"{item}: {dec.get('action', 'unknown')}")
+    
+    # Build menu action summary
+    menu_summary = []
+    if menu_actions.get("add_dishes"):
+        menu_summary.append(f"Add: {menu_actions['add_dishes']}")
+    if menu_actions.get("remove_dishes"):
+        menu_summary.append(f"Remove: {menu_actions['remove_dishes']}")
+    if menu_actions.get("modify_dishes"):
+        menu_summary.append(f"Modify: {menu_actions['modify_dishes']}")
+    
     template = load_prompt()
     prompt = template.format(
-        decision=decision_str,
-        item=signals.get("item", "unknown"),
-        consumption_rate=signals.get("consumption_rate", 0),
-        days_to_expiry=signals.get("days_to_expiry", 0),
-        trend=signals.get("trend", "unknown")
+        analysis=analysis,
+        decisions=decision_summary,
+        menu_actions=menu_summary,
+        at_risk_count=len(analysis.get("at_risk", [])),
+        overstock_count=len(analysis.get("overstock", [])),
+        safe_count=len(analysis.get("safe", []))
     )
     response = generate(prompt, max_tokens=2000)
 

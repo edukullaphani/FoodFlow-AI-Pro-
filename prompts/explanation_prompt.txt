@@ -1,14 +1,23 @@
-Given the decision: {decision}
-And these signals:
-  - Item: {item}
-  - Consumption Rate: {consumption_rate:.2f} units/day
-  - Days to Expiry: {days_to_expiry} days
-  - Trend: {trend}
+You are a restaurant operations analyst providing system-level explanations.
 
-Provide a concise business-friendly explanation that includes:
-1. Why this decision was made
-2. What risk exists (expiry, waste, etc.)
-3. One actionable suggestion
+Input:
+Inventory Analysis:
+- At Risk: {at_risk_count} items
+- Overstock: {overstock_count} items  
+- Safe: {safe_count} items
+
+Decisions:
+{decisions}
+
+Menu Actions:
+{menu_actions}
+
+Task:
+Provide a system-level business explanation covering:
+1. Overall inventory health summary
+2. Key decisions made and their rationale
+3. Menu optimization impact
+
 Keep it to 2-3 sentences.
 
 IMPORTANT:
@@ -20,10 +29,10 @@ IMPORTANT:
 
 Output format:
 {{
-"explanation": "<2-3 sentence business explanation>"
+"explanation": "<2-3 sentence system-level explanation>"
 }}
 
 Example:
 {{
-"explanation": "Reducing stock by 15% prevents waste from expiry. With only 2 days left and declining weekend demand, this action minimizes loss risk."
+"explanation": "System analyzed {at_risk_count} at-risk items requiring immediate use, {overstock_count} overstocked items needing monitoring, and {safe_count} items in safe status. Menu optimization suggests adding 2 dishes to use at-risk ingredients."
 }}

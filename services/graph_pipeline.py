@@ -2,116 +2,228 @@ import pandas as pd
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
 
-from core.data_processor import load_data, clean_data
-from core.feature_engineering import compute_consumption_rate, compute_days_to_expiry
-from core.metrics import detect_trend
-from agents.decision_agent import run as run_decision
+from core.data_processor import load_data
+from core.inventory_analysis import analyze_inventory
+from agents.batch_reasoning_agent import run as run_batch_reasoning
 from agents.explanation_agent import run as run_explanation
-from agents.hypothesis_agent import run as run_hypothesis
-from agents.simulation_agent import run as run_simulation
-from agents.strategy_agent import run as run_strategy
+from agents.menu_optimization_agent import run as run_menu_optimization
+from scripts.db import init_db, get_inventory_state, save_run, save_evaluation, get_menu, consume_dish, log_dish_orders, apply_menu_actions
+import random
+from core.evaluation import evaluate_day, get_item_effectiveness
+from core.preprocessing import build_signals
 
 
 class AgentState(TypedDict):
     signals: dict
-    hypothesis: dict
-    simulation: dict
-    decision: dict
-    strategy: dict
+    analysis: dict
+    reasoning: dict
+    decisions: dict
+    menu_actions: dict
     explanation: dict
 
 
-def hypothesis_node(state: AgentState) -> AgentState:
-    signals = state["signals"]
-    hypothesis = run_hypothesis(signals)
-    # return {"hypothesis": hypothesis}
-    state["hypothesis"] = hypothesis
+def batch_reasoning_node(state: AgentState) -> AgentState:
+    reasoning = run_batch_reasoning(state["signals"], state["analysis"])
+    state["reasoning"] = reasoning
     return state
 
-
-def simulation_node(state: AgentState) -> AgentState:
-    signals = state["signals"]
-    hypothesis = state["hypothesis"]
-    simulation = run_simulation(signals, hypothesis)
-    # return {"simulation": simulation}
-    state["simulation"] = simulation
-    return state
 
 def decision_node(state: AgentState) -> AgentState:
-    signals = state["signals"]
-    hypothesis = state["hypothesis"]
-    simulation = state["simulation"]
-    # decision_input = {
-    #     "signals": signals,
-    #     "hypothesis": hypothesis,
-    #     "simulation": simulation
-    # }
-    decision = run_decision(signals, hypothesis, simulation)
-    # return {"decision": decision}
-    state["decision"] = decision
+    analysis = state["analysis"]
+    decisions = {}
+    
+    # --- Adaptive Learning ---
+    scores = get_item_effectiveness()
+
+    for item in state["signals"]:
+        base_decision = "safe"
+        
+        if item in analysis.get("at_risk", []):
+            base_decision = "use_now"
+        elif item in analysis.get("overstock", []):
+            base_decision = "monitor"
+        
+        # Escalate near-expiry items to use_now even if currently overstock/monitor.
+        # This increases proactive turnover and reduces expiry risk.
+        item_signals = state["signals"].get(item, {})
+        days_to_expiry = item_signals.get("days_to_expiry", 999)
+        if days_to_expiry <= 2:
+            base_decision = "use_now"
+        
+        # --- ADAPTIVE ADJUSTMENT ---
+        score = scores.get(item, 0)
+        
+        if score < -2:
+            # downgrade bad-performing decisions
+            base_decision = "monitor"
+        
+        elif score > 3:
+            # reinforce good decisions
+            base_decision = "use_now"
+        
+        decisions[item] = {"action": base_decision}
+
+    # Debug check
+    for item, val in decisions.items():
+        if not isinstance(val, dict):
+            raise ValueError(f"Decision for {item} is not dict: {val}")
+
+    state["decisions"] = decisions
     return state
 
 
-def strategy_node(state: AgentState) -> AgentState:
-    decision = state["decision"]
-    signals = state["signals"]
-    strategy = run_strategy(decision, signals)
-    # return {"strategy": strategy}
-    state["strategy"] = strategy
+def menu_optimization_node(state: AgentState) -> AgentState:
+    current_menu = get_menu()
+    menu_actions = run_menu_optimization(
+        state["analysis"],
+        state["decisions"],
+        current_menu,
+    )
+    state["menu_actions"] = menu_actions
     return state
 
 
 def explanation_node(state: AgentState) -> AgentState:
-    decision = state["decision"]
-    signals = state["signals"]
-    explanation = run_explanation(decision, signals)
-    # return {"explanation": explanation}
+    explanation = run_explanation(
+        state["analysis"],
+        state["decisions"],
+        state["menu_actions"]
+    )
+
+    # Flatten explanation if returned as dict
+    if isinstance(explanation, dict):
+        explanation = explanation.get("explanation", "")
+
     state["explanation"] = explanation
     return state
 
 
 def build_graph():
     workflow = StateGraph(AgentState)
-    workflow.add_node("hypothesis", hypothesis_node)
-    workflow.add_node("simulation", simulation_node)
+
+    workflow.add_node("reasoning", batch_reasoning_node)
     workflow.add_node("decision", decision_node)
-    workflow.add_node("strategy", strategy_node)
+    workflow.add_node("menu", menu_optimization_node)
     workflow.add_node("explanation", explanation_node)
-    workflow.set_entry_point("hypothesis")
-    workflow.add_edge("hypothesis", "simulation")
-    workflow.add_edge("simulation", "decision")
-    workflow.add_edge("decision", "strategy")
-    workflow.add_edge("strategy", "explanation")
+
+    workflow.set_entry_point("reasoning")
+
+    workflow.add_edge("reasoning", "decision")
+    workflow.add_edge("decision", "menu")
+    workflow.add_edge("menu", "explanation")
     workflow.add_edge("explanation", END)
+
     return workflow.compile()
 
 
-def run_graph_pipeline(csv_path):
-    df = load_data(csv_path)
-    df = clean_data(df)
-    df['date'] = pd.to_datetime(df['date'])
-    df = df.sort_values('date')
-    item = df['item'].iloc[0]
-    consumption_rate = compute_consumption_rate(df)
-    days_to_expiry = compute_days_to_expiry(df)
-    trend = detect_trend(df)
-    signals = {
-        "item": item,
-        "consumption_rate": consumption_rate,
-        "days_to_expiry": days_to_expiry,
-        "trend": trend
-    }
+def get_weighted_menu(menu, decisions):
+    """
+    Assign weights to dishes based on decision priority.
+    """
+    weighted = []
+
+    for dish in menu:
+        ingredients = dish["ingredients"]
+
+        weight = 1  # default
+
+        for item in ingredients:
+            action = decisions.get(item, {}).get("action")
+
+            if action == "use_now":
+                weight += 3
+            elif action == "monitor":
+                weight += 1
+            elif action == "safe":
+                weight -= 0.2
+
+        # Prevent zero or negative weights
+        weight = max(weight, 0.1)
+
+        weighted.append((dish, weight))
+
+    return weighted
+
+
+def weighted_choice(weighted_menu):
+    dishes = [d["dish"] for d, _ in weighted_menu]
+    weights = [w for _, w in weighted_menu]
+
+    return random.choices(dishes, weights=weights, k=1)[0]
+
+
+def run_graph_pipeline(csv_path=None):
+    # Initialize DB Layer
+    init_db()
+    
+    # Get current state
+    inventory_state = get_inventory_state()
+    
+    # Handle empty DB by loading CSV if provided
+    if not inventory_state and csv_path:
+        from scripts.db import add_batch
+        df = load_data(csv_path)
+        for _, row in df.iterrows():
+            add_batch(row['item'], row['consumption'], row['expiry_date'])
+        inventory_state = get_inventory_state()
+
+    # Preprocessing
+    signals_dict = build_signals(inventory_state)
+    analysis = analyze_inventory(signals_dict)
+    
     initial_state: AgentState = {
-        "signals": signals,
-        "hypothesis": {},
-        "simulation": {},
-        "decision": {},
-        "strategy": {},
+        "signals": signals_dict,
+        "analysis": analysis,
+        "reasoning": {},
+        "decisions": {},
+        "menu_actions": {},
         "explanation": {}
     }
+    
     graph = build_graph()
     result = graph.invoke(initial_state)
-    return result["explanation"]
+    decisions = result.get("decisions", {})
+    menu_actions = result.get("menu_actions", {})
+    menu_apply_summary = apply_menu_actions(menu_actions, decisions, signals_dict)
+    result["menu_apply_summary"] = menu_apply_summary
+    
+    # --- Simulation Layer ---
+    menu = get_menu()
 
+    order_log = {}
 
-import pandas as pd
+    # Scale order volume with risk level to increase targeted inventory turnover.
+    at_risk_count = len(analysis.get("at_risk", []))
+    min_orders = 20 + min(10, at_risk_count // 3)
+    max_orders = 50 + min(20, at_risk_count // 2)
+    num_orders = random.randint(min_orders, max_orders)
+
+    weighted_menu = get_weighted_menu(menu, decisions)
+
+    for _ in range(num_orders):
+        dish = weighted_choice(weighted_menu)
+
+        print(f"[ORDER] {dish}")
+
+        if dish not in order_log:
+            order_log[dish] = 0
+
+        order_log[dish] += 1
+
+        consume_dish(dish, 1)
+
+    log_dish_orders(order_log)
+    
+    # Persistent output
+    save_run(result)
+    
+    # Evaluation Layer
+    current_state = get_inventory_state()
+    records = evaluate_day(inventory_state, current_state, result.get("decisions", {}), result.get("analysis", {}))
+    save_evaluation(records)
+    
+    return {
+        "explanation": result.get("explanation", ""),
+        "decisions": result.get("decisions"),
+        "orders": order_log
+    }
